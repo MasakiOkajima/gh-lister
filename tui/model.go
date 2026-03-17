@@ -122,7 +122,9 @@ func (m Model) View() tea.View {
 
 	if m.fetching {
 		b.WriteString(fmt.Sprintf("  %s Fetching PRs...\n", m.spinner.View()))
-		return tea.NewView(b.String())
+		fv := tea.NewView(b.String())
+		fv.AltScreen = true
+		return fv
 	}
 
 	if m.err != nil {
@@ -159,7 +161,9 @@ func (m Model) View() tea.View {
 	b.WriteString(helpStyle.Render("  ↑↓: move  Enter: open in browser  r: refresh  q: quit"))
 	b.WriteString("\n")
 
-	return tea.NewView(b.String())
+	v := tea.NewView(b.String())
+	v.AltScreen = true
+	return v
 }
 
 func (m Model) titleWidth() int {
