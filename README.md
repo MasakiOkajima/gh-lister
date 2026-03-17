@@ -1,41 +1,41 @@
 # gh-lister
 
-A TUI tool to list GitHub pull requests pending your review across an entire org.
+GitHub org 配下のリポジトリから、自分がレビュー担当で未レビューの PR を一覧表示する TUI ツール。
 
-## Install
+## インストール
 
 ```bash
 go install github.com/MasakiOkajima/gh-lister@latest
 ```
 
-### Prerequisites
+### 前提条件
 
-- [gh CLI](https://cli.github.com) installed and authenticated (`gh auth login`)
+- [gh CLI](https://cli.github.com) がインストール済みで認証済みであること（`gh auth login`）
 
-## Configuration
+## 設定
 
-On first run, a config template is generated at `~/.config/gh-lister/config.yaml`:
+初回実行時に `~/.config/gh-lister/config.yaml` にテンプレートが生成されます。
 
 ```yaml
-# GitHub org to search for pending reviews
+# レビュー待ちPRを検索する GitHub org
 org: my-org
 
-# Additional repositories outside the org (owner/repo format)
+# org 外の追加リポジトリ（owner/repo 形式）
 # repos:
 #   - other-org/some-repo
 ```
 
-## Usage
+## 使い方
 
 ```bash
 gh-lister
 ```
 
-### Keybindings
+### キーバインド
 
-| Key | Action |
-|-----|--------|
-| ↑/↓, j/k | Move cursor |
-| Enter | Open PR in browser |
-| r | Refresh list |
-| q, Ctrl+C | Quit |
+| キー | 動作 |
+|------|------|
+| ↑/↓, j/k | カーソル移動 |
+| Enter | 選択したPRをブラウザで開く |
+| r | 一覧を再取得 |
+| q, Ctrl+C | 終了 |
