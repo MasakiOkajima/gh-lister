@@ -3,6 +3,8 @@ package github
 import (
 	"context"
 	"testing"
+
+	gh "github.com/google/go-github/v82/github"
 )
 
 func TestMergePRs_Dedup(t *testing.T) {
@@ -50,6 +52,41 @@ func TestNewClient(t *testing.T) {
 	if client == nil {
 		t.Fatal("expected non-nil client")
 	}
+}
+
+func TestIsAuthor(t *testing.T) {
+	login := "alice"
+	pr := &gh.PullRequest{
+		User: &gh.User{Login: &login},
+	}
+
+	if !isAuthor(pr, "alice") {
+		t.Error("expected true for matching author")
+	}
+	if !isAuthor(pr, "Alice") {
+		t.Error("expected true for case-insensitive match")
+	}
+	if isAuthor(pr, "bob") {
+		t.Error("expected false for non-matching author")
+	}
+}
+
+func TestFetchAuthoredPRs_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	token, err := GetToken()
+	if err != nil {
+		t.Skipf("gh auth token not available: %v", err)
+	}
+
+	client := NewClient(token)
+	prs, err := client.FetchAuthoredPRs(context.Background(), "golang", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	t.Logf("found %d authored PRs in golang org", len(prs))
 }
 
 func TestFetchPendingReviews_Integration(t *testing.T) {
