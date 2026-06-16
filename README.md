@@ -23,6 +23,14 @@ org: my-org
 # org 外の追加リポジトリ（owner/repo 形式）
 # repos:
 #   - other-org/some-repo
+
+# ローカルクローンの探索先（c キーのClaudeレビュー用）
+# owner/repo の PR に対し <base>/<repo> を順に探し、最初に見つかった
+# git チェックアウトでレビューを起動する。見つからなければカレントディレクトリで起動。
+# 先頭の ~ はホームディレクトリに展開される。
+# base_dirs:
+#   - ~/repos
+#   - ~/work
 ```
 
 ## 使い方
@@ -38,5 +46,6 @@ gh-lister
 | Tab | タブ切り替え（Review Requested / My PRs） |
 | ↑/↓, j/k | カーソル移動 |
 | Enter | 選択したPRをブラウザで開く |
+| c | 選択したPRをClaudeでコードレビュー（`claude --permission-mode auto "/code-review <URL>"`）。`base_dirs` にローカルクローンがあればそのディレクトリで起動 |
 | r | 一覧を再取得 |
 | q, Ctrl+C | 終了 |

@@ -87,6 +87,7 @@ func run() error {
 	model := tui.New(
 		tui.TabData{PRs: reviewPRs, FetchFn: reviewFetchFn},
 		tui.TabData{PRs: myPRs, FetchFn: myFetchFn},
+		cfg.BaseDirs,
 	)
 	p := tea.NewProgram(model)
 	if _, err := p.Run(); err != nil {

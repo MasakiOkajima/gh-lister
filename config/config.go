@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -13,6 +14,9 @@ import (
 type Config struct {
 	Org   string   `yaml:"org"`
 	Repos []string `yaml:"repos"`
+	// BaseDirs はローカルクローンを探索するディレクトリ群。
+	// Claudeレビュー時に owner/repo の repo 名で <base>/<repo> を探し、見つかればそこで起動する。
+	BaseDirs []string `yaml:"base_dirs"`
 }
 
 // DefaultPath は設定ファイルのデフォルトパスを返す。
@@ -38,7 +42,24 @@ func Load(path string) (*Config, error) {
 	}
 
 	config.dedupRepos()
+	config.expandBaseDirs()
 	return config, nil
+}
+
+// expandBaseDirs は base_dirs 内の先頭 ~ をホームディレクトリへ展開する。
+// yaml はシェル展開しないため、設定に書かれた ~/work などを自前で絶対パス化する。
+func (c *Config) expandBaseDirs() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	for i, dir := range c.BaseDirs {
+		if dir == "~" {
+			c.BaseDirs[i] = home
+		} else if strings.HasPrefix(dir, "~/") {
+			c.BaseDirs[i] = filepath.Join(home, dir[2:])
+		}
+	}
 }
 
 func (c *Config) validate() error {
@@ -68,6 +89,14 @@ org: my-org
 # Additional repositories outside the org (owner/repo format)
 # repos:
 #   - other-org/some-repo
+
+# Base directories that hold local clones (for the 'c' Claude review key).
+# For a PR in owner/repo, <base>/<repo> is searched in order; the first existing
+# git checkout is used as the working directory. Falls back to the current
+# directory when none match. '~' is expanded to your home directory.
+# base_dirs:
+#   - ~/repos
+#   - ~/work
 `
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)

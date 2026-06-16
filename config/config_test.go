@@ -81,6 +81,51 @@ func TestLoad_ReposOptional(t *testing.T) {
 	}
 }
 
+func TestLoad_BaseDirsTildeExpansion(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home dir")
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	content := []byte("org: my-org\nbase_dirs:\n  - ~/repos\n  - /abs/path\n")
+	if err := os.WriteFile(path, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []string{filepath.Join(home, "repos"), "/abs/path"}
+	if len(cfg.BaseDirs) != len(want) {
+		t.Fatalf("got %d base_dirs, want %d", len(cfg.BaseDirs), len(want))
+	}
+	for i := range want {
+		if cfg.BaseDirs[i] != want[i] {
+			t.Errorf("base_dirs[%d] = %q, want %q", i, cfg.BaseDirs[i], want[i])
+		}
+	}
+}
+
+func TestLoad_BaseDirsOptional(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte("org: my-org\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.BaseDirs) != 0 {
+		t.Errorf("got %d base_dirs, want 0", len(cfg.BaseDirs))
+	}
+}
+
 func TestGenerateTemplate(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
