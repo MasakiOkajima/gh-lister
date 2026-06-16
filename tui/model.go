@@ -3,6 +3,9 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/MasakiOkajima/gh-lister/github"
@@ -47,6 +50,7 @@ type Model struct {
 	err       error
 	width     int
 	spinner   spinner.Model
+	baseDirs  []string
 }
 
 type fetchDoneMsg struct {
@@ -55,8 +59,13 @@ type fetchDoneMsg struct {
 	err       error
 }
 
-// New は新しい Model を作成する。
-func New(reviewTab, myPRsTab TabData) Model {
+// reviewDoneMsg は claude レビューセッション終了時に届く。errはプロセス起動/異常終了のみ。
+type reviewDoneMsg struct {
+	err error
+}
+
+// New は新しい Model を作成する。baseDirs は Claude レビュー時にローカルクローンを探す基準ディレクトリ群。
+func New(reviewTab, myPRsTab TabData, baseDirs []string) Model {
 	s := spinner.New(
 		spinner.WithSpinner(spinner.Dot),
 		spinner.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("205"))),
@@ -66,7 +75,8 @@ func New(reviewTab, myPRsTab TabData) Model {
 			{label: "Review Requested", prs: reviewTab.PRs, fetchFn: reviewTab.FetchFn},
 			{label: "My PRs", prs: myPRsTab.PRs, fetchFn: myPRsTab.FetchFn},
 		},
-		spinner: s,
+		spinner:  s,
+		baseDirs: baseDirs,
 	}
 }
 
@@ -90,6 +100,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.tabs[i].cursor = max(0, len(m.tabs[i].prs)-1)
 			}
 		}
+		return m, nil
+
+	case reviewDoneMsg:
+		m.err = msg.err
 		return m, nil
 
 	case spinner.TickMsg:
@@ -127,6 +141,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
+		case "c":
+			tab := &m.tabs[m.activeTab]
+			if len(tab.prs) > 0 {
+				pr := tab.prs[tab.cursor]
+				dir, _ := resolveRepoDir(pr.Repo, m.baseDirs)
+				cmd := reviewCommand(pr.URL, dir)
+				return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+					return reviewDoneMsg{err: err}
+				})
+			}
+			return m, nil
+
 		case "r":
 			if !m.fetching {
 				m.fetching = true
@@ -136,6 +162,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// reviewCommand は claude を auto モードで起動し /code-review に PR URL を渡すコマンドを組み立てる。
+// プロンプトは "/code-review <url>" を1引数として渡す(claudeは位置引数を初回入力として扱う)。
+// dir が空でなければそのディレクトリで起動する(空なら呼び出し元のcwdを継承)。
+func reviewCommand(url, dir string) *exec.Cmd {
+	cmd := exec.Command("claude", "--permission-mode", "auto", "/code-review "+url)
+	cmd.Dir = dir
+	return cmd
+}
+
+// resolveRepoDir は owner/repo のローカルクローンを baseDirs から探す。
+// repo 名で <base>/<repo> を順に調べ、git チェックアウト(.git が存在)であれば採用する。
+// 見つからなければ ok=false を返し、呼び出し元は cwd 起動にフォールバックする。
+func resolveRepoDir(repo string, baseDirs []string) (string, bool) {
+	name := repo
+	if i := strings.LastIndex(repo, "/"); i >= 0 {
+		name = repo[i+1:]
+	}
+	if name == "" {
+		return "", false
+	}
+	for _, base := range baseDirs {
+		candidate := filepath.Join(base, name)
+		if _, err := os.Stat(filepath.Join(candidate, ".git")); err == nil {
+			return candidate, true
+		}
+	}
+	return "", false
 }
 
 func (m Model) doFetch() tea.Cmd {
@@ -211,7 +266,7 @@ func (m Model) View() tea.View {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("  Tab: switch  ↑↓: move  Enter: open  r: refresh  q: quit"))
+	b.WriteString(helpStyle.Render("  Tab: switch  ↑↓: move  Enter: open  c: review  r: refresh  q: quit"))
 	b.WriteString("\n")
 
 	v := tea.NewView(b.String())
